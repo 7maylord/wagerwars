@@ -70,7 +70,7 @@ export default function Hero() {
 
         {/* Subheadline */}
         <p className="max-w-2xl text-base sm:text-lg text-gray-300 mb-12 leading-relaxed">
-          Decentralized prediction markets for events, elections, and crypto outcomes—powered by Stacks for secure,
+          Decentralized prediction markets for events, elections, and crypto outcomes powered by Stacks for secure,
           sBTC-backed wagers.
         </p>
 
