@@ -51,7 +51,7 @@ export default function Waitlist() {
       } else {
         toast({
           title: "Welcome to the War! ⚔️",
-          description: "You're in! Check your inbox for exclusive details and early access.",
+          description: "You're in! Watch your inbox for exclusive details and early access.",
           duration: 5000,
         })
       }
