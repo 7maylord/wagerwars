@@ -25,28 +25,47 @@ export default function Waitlist() {
 
   const onSubmit = async (data: WaitlistFormData) => {
     try {
-      // Mock API call - replace with actual backend integration
-      console.log("Email submitted:", data.email)
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      setIsSubmitted(true)
-      toast({
-        title: "Success!",
-        description: "You're in! Check your inbox for early access details.",
-        duration: 5000,
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: data.email }),
       })
 
-      // Reset form after 3 seconds
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to join waitlist')
+      }
+
+      setIsSubmitted(true)
+      
+      // Show different toast based on whether they were already registered
+      if (result.alreadyRegistered) {
+        toast({
+          title: "Already on the List! 🎯",
+          description: "You're already on our waitlist! We'll keep you updated with the latest news.",
+          duration: 5000,
+        })
+      } else {
+        toast({
+          title: "Welcome to the War! ⚔️",
+          description: "You're in! Check your inbox for exclusive details and early access.",
+          duration: 5000,
+        })
+      }
+
+      // Reset form after 5 seconds
       setTimeout(() => {
         reset()
         setIsSubmitted(false)
-      }, 3000)
+      }, 5000)
     } catch (error) {
+      console.error('Waitlist submission error:', error)
       toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: "Oops! Something went wrong",
+        description: error instanceof Error ? error.message : "Please try again later.",
         variant: "destructive",
       })
     }
@@ -68,7 +87,7 @@ export default function Waitlist() {
 
         {/* Subheadline */}
         <p className="text-lg sm:text-xl text-gray-300 mb-12">
-          Join 10,000+ early warriors. Get alpha on launch, airdrops, and exclusive markets.
+          Join our waitlist of early warriors. Get alpha on launch, airdrops, and exclusive markets.
         </p>
 
         {/* Form */}
@@ -109,11 +128,9 @@ export default function Waitlist() {
           </div>
         )}
 
-        {/* Social proof */}
         <div className="mt-12 pt-8 border-t border-cyan-500/20">
           <p className="text-sm text-gray-500">
-            Powered by <span className="text-cyan-400 font-semibold">Stacks</span> • Audited by{" "}
-            <span className="text-cyan-400 font-semibold">Hiro</span>
+            Powered by <span className="text-cyan-400 font-semibold">Stacks</span>
           </p>
         </div>
       </div>
