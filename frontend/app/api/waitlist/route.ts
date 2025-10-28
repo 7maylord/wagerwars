@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (resend) {
       try {
         const emailData = await resend.emails.send({
-          from: 'Resend <onboarding@resend.dev>',
+          from: 'WagerWars <noreply@wagerwars.paytroix.xyz>',
           to: [email],
           subject: '🎯 You\'re In! Welcome to WagerWars',
           html: `
