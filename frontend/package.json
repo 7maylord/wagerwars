@@ -11,6 +11,9 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-toast": "^1.2.15",
+    "@stacks/connect": "^8.2.2",
+    "@stacks/network": "^7.2.0",
+    "@stacks/transactions": "^7.3.0",
     "@supabase/supabase-js": "^2.76.1",
     "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
