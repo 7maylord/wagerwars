@@ -445,7 +445,7 @@
         shares: shares,
         sbtc-amount: sbtc-amount,
         price: (default-to u0 (ok-or-default price)),
-        timestamp: block-height
+        timestamp: stacks-block-height
       }
     )
     (var-set next-trade-id (+ trade-id u1))

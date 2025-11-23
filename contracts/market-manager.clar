@@ -165,7 +165,7 @@
     market
       (and
         (is-eq (get status market) STATUS-OPEN)
-        (< block-height (get lock-time market))
+        (< stacks-block-height (get lock-time market))
         (not (var-get contract-paused))
       )
     false
@@ -179,7 +179,7 @@
       (and
         (or (is-eq (get status market) STATUS-OPEN)
             (is-eq (get status market) STATUS-LOCKED))
-        (>= block-height (get resolution-time market))
+        (>= stacks-block-height (get resolution-time market))
         (is-none (get resolved-outcome market))
       )
     false
@@ -212,7 +212,7 @@
   (metadata-uri (optional (string-ascii 256))))
   (let (
     (market-id (var-get next-market-id))
-    (creation-time block-height)
+    (creation-time stacks-block-height)
   )
     ;; Validations
     (asserts! (not (var-get contract-paused)) ERR-UNAUTHORIZED)
@@ -290,7 +290,7 @@
   (metadata-uri (optional (string-ascii 256))))
   (let (
     (market-id (var-get next-market-id))
-    (creation-time block-height)
+    (creation-time stacks-block-height)
     (outcome-count (len outcomes))
   )
     ;; Validations
@@ -324,7 +324,7 @@
     )
 
     ;; Create outcome entries
-    (try! (create-outcomes market-id outcomes))
+    (create-outcomes market-id outcomes)
 
     ;; Set category
     (map-set market-categories { market-id: market-id } { category: category })
@@ -363,7 +363,7 @@
   (metadata-uri (optional (string-ascii 256))))
   (let (
     (market-id (var-get next-market-id))
-    (creation-time block-height)
+    (creation-time stacks-block-height)
   )
     ;; Validations
     (asserts! (not (var-get contract-paused)) ERR-UNAUTHORIZED)
@@ -452,7 +452,7 @@
       (merge market {
         resolved-outcome: (some winning-outcome),
         status: STATUS-RESOLVED,
-        resolved-at: (some block-height)
+        resolved-at: (some stacks-block-height)
       })
     )
 
@@ -462,7 +462,7 @@
       market-id: market-id,
       winning-outcome: winning-outcome,
       oracle: tx-sender,
-      resolved-at: block-height
+      resolved-at: stacks-block-height
     })
 
     (ok true)
@@ -494,7 +494,7 @@
       { market-id: market-id }
       (merge market {
         status: STATUS-RESOLVED,
-        resolved-at: (some block-height)
+        resolved-at: (some stacks-block-height)
       })
     )
 
@@ -504,7 +504,7 @@
       market-id: market-id,
       resolved-value: resolved-value,
       oracle: tx-sender,
-      resolved-at: block-height
+      resolved-at: stacks-block-height
     })
 
     (ok true)
@@ -613,14 +613,9 @@
 
 ;; Helper to create outcome entries for categorical markets
 (define-private (create-outcomes (market-id uint) (outcome-names (list 10 (string-ascii 64))))
-  (let (
-    (initial-price (/ u1000000 (len outcome-names))) ;; Equal probability to start
-  )
-    (fold create-outcome-entry
-          outcome-names
-          { market-id: market-id, index: u0, success: true })
-    (ok true)
-  )
+  (fold create-outcome-entry
+        outcome-names
+        { market-id: market-id, index: u0, success: true })
 )
 
 (define-private (create-outcome-entry

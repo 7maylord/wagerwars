@@ -440,7 +440,7 @@
       { user: user, market-id: market-id }
       {
         amount: amount,
-        calculated-at: block-height,
+        calculated-at: stacks-block-height,
         claimed: false
       }
     )

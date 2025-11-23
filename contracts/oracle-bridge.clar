@@ -192,7 +192,7 @@
           successful-resolutions: u0,
           disputed-resolutions: u0,
           total-slashed: u0,
-          registered-at: block-height,
+          registered-at: stacks-block-height,
           reputation-score: u10000 ;; Start at 100%
         }
       )
@@ -262,8 +262,8 @@
       { oracle: tx-sender }
       {
         amount: amount,
-        requested-at: block-height,
-        withdrawal-available-at: (+ block-height withdrawal-delay)
+        requested-at: stacks-block-height,
+        withdrawal-available-at: (+ stacks-block-height withdrawal-delay)
       }
     )
 
@@ -271,7 +271,7 @@
       event: "withdrawal-requested",
       oracle: tx-sender,
       amount: amount,
-      available-at: (+ block-height withdrawal-delay)
+      available-at: (+ stacks-block-height withdrawal-delay)
     })
 
     (ok true)
@@ -285,7 +285,7 @@
     (oracle-data (unwrap! (map-get? oracles { oracle: tx-sender }) ERR-ORACLE-NOT-FOUND))
   )
     ;; Check timelock
-    (asserts! (>= block-height (get withdrawal-available-at withdrawal)) ERR-UNAUTHORIZED)
+    (asserts! (>= stacks-block-height (get withdrawal-available-at withdrawal)) ERR-UNAUTHORIZED)
 
     ;; Transfer bond back
     ;; (try! (as-contract (stx-transfer? (get amount withdrawal) tx-sender tx-sender)))
@@ -350,7 +350,7 @@
     ;; Validations
     (asserts! (is-eq tx-sender (get oracle oracle-assignment)) ERR-UNAUTHORIZED)
     (asserts! (not (get resolved oracle-assignment)) ERR-ALREADY-RESOLVED)
-    (asserts! (>= block-height (get resolution-deadline oracle-assignment)) ERR-UNAUTHORIZED)
+    (asserts! (>= stacks-block-height (get resolution-deadline oracle-assignment)) ERR-UNAUTHORIZED)
 
     ;; Submit resolution to market-manager
     (try! (contract-call? .market-manager resolve-market market-id outcome-id))
@@ -360,7 +360,7 @@
       { market-id: market-id }
       (merge oracle-assignment {
         resolved: true,
-        resolution-submitted-at: (some block-height)
+        resolution-submitted-at: (some stacks-block-height)
       })
     )
 
@@ -370,7 +370,7 @@
       {
         oracle: tx-sender,
         outcome-id: outcome-id,
-        resolved-at: block-height,
+        resolved-at: stacks-block-height,
         finalized: false
       }
     )
@@ -410,14 +410,14 @@
     ;; Validations
     (asserts! (get resolved oracle-assignment) ERR-INVALID-DISPUTE)
     (asserts! (not (get disputed oracle-assignment)) ERR-ALREADY-DISPUTED)
-    (asserts! (< block-height (get dispute-deadline oracle-assignment)) ERR-DISPUTE-WINDOW-CLOSED)
+    (asserts! (< stacks-block-height (get dispute-deadline oracle-assignment)) ERR-DISPUTE-WINDOW-CLOSED)
 
     ;; Create dispute
     (map-set resolution-disputes
       { market-id: market-id }
       {
         disputer: tx-sender,
-        disputed-at: block-height,
+        disputed-at: stacks-block-height,
         dispute-reason: reason,
         resolved: false,
         dispute-valid: false,
