@@ -9,8 +9,9 @@ const wallet3 = accounts.get("wallet_3")!;
 
 // Helper constants
 const PRECISION = 1_000_000; // 6 decimal places
-const ONE_HOUR = 6; // ~6 blocks
-const ONE_DAY = 144; // ~144 blocks (10 min blocks)
+const ONE_HOUR = 360; // ~360 blocks (1 hour with ~10s blocks)
+const ONE_DAY = 8640; // ~8640 blocks (1 day with ~10s blocks)
+const MIN_RESOLUTION_TIME = 3600; // Minimum resolution time from market-manager
 
 describe("WagerWars Prediction Market Tests", () => {
   describe("Mock sBTC Token", () => {
@@ -134,17 +135,25 @@ describe("WagerWars Prediction Market Tests", () => {
         deployer
       );
 
-      expect(isAuthorized.result).toBe(Cl.bool(true));
+      expect(isAuthorized.result).toStrictEqual(Cl.bool(true));
     });
   });
 
   describe("Market Manager - Binary Markets", () => {
     beforeEach(() => {
-      // Register oracle for market creation
+      // Register oracle in oracle-bridge (for bonding/slashing)
       simnet.callPublicFn(
         "oracle-bridge",
         "register-oracle",
         [Cl.uint(1_000_000 * PRECISION)],
+        wallet1
+      );
+
+      // Register oracle in market-manager (for authorization)
+      simnet.callPublicFn(
+        "market-manager",
+        "register-oracle",
+        [Cl.uint(1_000_000_000)], // 1000 STX minimum
         wallet1
       );
     });
@@ -180,16 +189,24 @@ describe("WagerWars Prediction Market Tests", () => {
         deployer
       );
 
-      expect(canTrade.result).toBe(Cl.bool(true));
+      expect(canTrade.result).toStrictEqual(Cl.bool(true));
     });
   });
 
   describe("Market Manager - Categorical Markets", () => {
     beforeEach(() => {
+      // Register oracle in both contracts
       simnet.callPublicFn(
         "oracle-bridge",
         "register-oracle",
         [Cl.uint(1_000_000 * PRECISION)],
+        wallet1
+      );
+
+      simnet.callPublicFn(
+        "market-manager",
+        "register-oracle",
+        [Cl.uint(1_000_000_000)],
         wallet1
       );
     });
@@ -229,10 +246,18 @@ describe("WagerWars Prediction Market Tests", () => {
 
   describe("Market Manager - Scalar Markets", () => {
     beforeEach(() => {
+      // Register oracle in both contracts
       simnet.callPublicFn(
         "oracle-bridge",
         "register-oracle",
         [Cl.uint(1_000_000 * PRECISION)],
+        wallet1
+      );
+
+      simnet.callPublicFn(
+        "market-manager",
+        "register-oracle",
+        [Cl.uint(1_000_000_000)],
         wallet1
       );
     });
@@ -267,11 +292,18 @@ describe("WagerWars Prediction Market Tests", () => {
 
   describe("Market Resolution", () => {
     beforeEach(() => {
-      // Register oracle
+      // Register oracle in both contracts
       simnet.callPublicFn(
         "oracle-bridge",
         "register-oracle",
         [Cl.uint(1_000_000 * PRECISION)],
+        wallet1
+      );
+
+      simnet.callPublicFn(
+        "market-manager",
+        "register-oracle",
+        [Cl.uint(1_000_000_000)],
         wallet1
       );
 
@@ -311,11 +343,18 @@ describe("WagerWars Prediction Market Tests", () => {
 
   describe("Main WagerWars Contract", () => {
     beforeEach(() => {
-      // Register oracle
+      // Register oracle in both contracts
       simnet.callPublicFn(
         "oracle-bridge",
         "register-oracle",
         [Cl.uint(1_000_000 * PRECISION)],
+        wallet1
+      );
+
+      simnet.callPublicFn(
+        "market-manager",
+        "register-oracle",
+        [Cl.uint(1_000_000_000)],
         wallet1
       );
     });
@@ -349,7 +388,9 @@ describe("WagerWars Prediction Market Tests", () => {
         deployer
       );
 
-      expect(stats.result).toBeOk(Cl.tuple);
+      expect(stats.result).toBeOk(
+        Cl.tuple({ version: Cl.stringAscii("1.0.0") })
+      );
     });
   });
 });

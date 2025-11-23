@@ -89,6 +89,11 @@ plan:
             path: contracts/oracle-bridge.clar
             clarity-version: 3
         - emulated-contract-publish:
+            contract-name: order-book
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/order-book.clar
+            clarity-version: 3
+        - emulated-contract-publish:
             contract-name: sbtc-token
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/sbtc-token.clar
@@ -97,11 +102,6 @@ plan:
             contract-name: vault
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/vault.clar
-            clarity-version: 3
-        - emulated-contract-publish:
-            contract-name: order-book
-            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/order-book.clar
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: wagerwars
