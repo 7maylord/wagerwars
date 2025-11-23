@@ -94,11 +94,19 @@
 )
 
 ;; Get platform statistics
-;; Simplified for MVP - returns version only
 (define-read-only (get-platform-stats)
-  (ok {
-    version: CONTRACT-VERSION
-  })
+  (let (
+    (market-stats (contract-call? .market-manager get-contract-stats))
+    (vault-stats (contract-call? .vault get-vault-stats))
+    (oracle-stats (contract-call? .oracle-bridge get-oracle-stats))
+  )
+    (ok {
+      version: CONTRACT-VERSION,
+      markets: market-stats,
+      vault: vault-stats,
+      oracles: oracle-stats
+    })
+  )
 )
 
 ;; ============================================

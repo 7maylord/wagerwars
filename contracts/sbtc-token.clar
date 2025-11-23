@@ -29,13 +29,16 @@
 ;; ============================================
 
 ;; Transfer tokens
-;; Simplified for MVP
 (define-public (transfer
   (amount uint)
   (sender principal)
   (recipient principal)
   (memo (optional (buff 34))))
-  (ok true)
+  (begin
+    ;; In production, this would call the actual sBTC contract
+    ;; For now, we'll use our mock implementation
+    (contract-call? SBTC-CONTRACT transfer amount sender recipient memo)
+  )
 )
 
 ;; Get token name
@@ -54,15 +57,13 @@
 )
 
 ;; Get balance of an account
-;; Simplified for MVP
 (define-read-only (get-balance (account principal))
-  (ok u0)
+  (contract-call? SBTC-CONTRACT get-balance account)
 )
 
 ;; Get total supply
-;; Simplified for MVP
 (define-read-only (get-total-supply)
-  (ok u0)
+  (contract-call? SBTC-CONTRACT get-total-supply)
 )
 
 ;; Get token URI
@@ -75,15 +76,29 @@
 ;; ============================================
 
 ;; Transfer sBTC from user to vault (called by vault contract)
-;; Simplified for MVP
 (define-public (transfer-to-vault (amount uint) (sender principal))
-  (ok amount)
+  (begin
+    ;; Transfer from sender to contract
+    (try! (contract-call? SBTC-CONTRACT transfer
+                          amount
+                          sender
+                          (as-contract tx-sender)
+                          none))
+    (ok amount)
+  )
 )
 
 ;; Transfer sBTC from vault to user (called by vault contract)
-;; Simplified for MVP
 (define-public (transfer-from-vault (amount uint) (recipient principal))
-  (ok amount)
+  (begin
+    ;; Transfer from contract to recipient
+    (try! (as-contract (contract-call? SBTC-CONTRACT transfer
+                                       amount
+                                       tx-sender
+                                       recipient
+                                       none)))
+    (ok amount)
+  )
 )
 
 ;; ============================================

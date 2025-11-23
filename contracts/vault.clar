@@ -118,8 +118,7 @@
     (asserts! (> amount u0) ERR-INVALID-AMOUNT)
 
     ;; Transfer sBTC from user to vault
-    ;; Simplified for MVP - cross-contract call stubbed
-    ;; (try! (contract-call? .sbtc-token transfer-to-vault amount user))
+    (try! (contract-call? .sbtc-token transfer-to-vault amount user))
 
     ;; Update market balance
     (let (
@@ -183,8 +182,7 @@
       (asserts! (>= (get total-locked market-bal) amount) ERR-INSUFFICIENT-BALANCE)
 
       ;; Transfer sBTC from vault to user
-      ;; Simplified for MVP - cross-contract call stubbed
-      ;; (try! (contract-call? .sbtc-token transfer-from-vault amount user))
+      (try! (contract-call? .sbtc-token transfer-from-vault amount user))
 
       ;; Update market balance
       (map-set market-balances
@@ -242,8 +240,7 @@
       (asserts! (>= (get total-locked market-bal) amount) ERR-INSUFFICIENT-BALANCE)
 
       ;; Transfer winnings
-      ;; Simplified for MVP - cross-contract call stubbed
-      ;; (try! (contract-call? .sbtc-token transfer-from-vault amount user))
+      (try! (contract-call? .sbtc-token transfer-from-vault amount user))
 
       ;; Update market balance
       (map-set market-balances
@@ -279,11 +276,14 @@
 )
 
 ;; Refund users in cancelled markets
-;; Simplified for MVP - assumes market status checks are done elsewhere
 (define-public (refund-cancelled-market (user principal) (market-id uint))
   (let (
+    (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
     (user-bal (unwrap! (get-user-market-balance user market-id) ERR-INSUFFICIENT-BALANCE))
   )
+    ;; Check market is cancelled
+    (asserts! (is-eq (get status market) "cancelled") ERR-UNAUTHORIZED)
+
     ;; Check not already claimed
     (asserts! (not (get claimed user-bal)) ERR-ALREADY-CLAIMED)
 
@@ -293,8 +293,7 @@
       (asserts! (> refund-amount u0) ERR-INVALID-AMOUNT)
 
       ;; Transfer refund
-      ;; Simplified for MVP - cross-contract call stubbed
-      ;; (try! (contract-call? .sbtc-token transfer-from-vault refund-amount user))
+      (try! (contract-call? .sbtc-token transfer-from-vault refund-amount user))
 
       ;; Mark as claimed
       (map-set user-market-balances
@@ -377,8 +376,7 @@
     (asserts! (<= amount (var-get total-fees-collected)) ERR-INSUFFICIENT-BALANCE)
 
     ;; Transfer fees to treasury
-    ;; Simplified for MVP - cross-contract call stubbed
-    ;; (try! (contract-call? .sbtc-token transfer-from-vault amount treasury))
+    (try! (contract-call? .sbtc-token transfer-from-vault amount treasury))
 
     ;; Update fees collected
     (var-set total-fees-collected (- (var-get total-fees-collected) amount))
@@ -412,8 +410,7 @@
   (begin
     (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
 
-    ;; Simplified for MVP - cross-contract call stubbed
-    ;; (try! (contract-call? .sbtc-token transfer-from-vault amount recipient))
+    (try! (contract-call? .sbtc-token transfer-from-vault amount recipient))
 
     (print {
       event: "emergency-withdrawal",

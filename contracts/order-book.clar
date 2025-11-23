@@ -85,50 +85,76 @@
 )
 
 ;; Get current price for an outcome using LMSR
-;; Simplified - returns 50% for MVP
 (define-read-only (get-current-price (market-id uint) (outcome-id uint))
-  (ok u500000) ;; 0.5 = 50%
+  (let (
+    (market (unwrap! (contract-call? .market-manager get-market market-id) (err u0)))
+    (quantities (get-all-quantities market-id (get outcome-count market)))
+  )
+    ;; Call LMSR price calculation
+    (ok (contract-call? .lmsr-math lmsr-price
+                        quantities
+                        outcome-id
+                        (get liquidity-param market)))
+  )
 )
 
 ;; Calculate how many shares user would get for a given sBTC amount
-;; Simplified for MVP
 (define-read-only (calculate-buy-quote
   (market-id uint)
   (outcome-id uint)
   (sbtc-amount uint))
   (let (
+    (market (unwrap! (contract-call? .market-manager get-market market-id) (err u0)))
+    (quantities (get-all-quantities market-id (get outcome-count market)))
     (protocol-fee (/ (* sbtc-amount PROTOCOL-FEE-BPS) u10000))
     (amount-after-fee (- sbtc-amount protocol-fee))
   )
+    ;; Calculate shares using LMSR
     (ok {
-      shares: amount-after-fee, ;; 1:1 conversion
+      shares: (contract-call? .lmsr-math calculate-shares-for-sbtc
+                              quantities
+                              outcome-id
+                              amount-after-fee
+                              (get liquidity-param market)),
       protocol-fee: protocol-fee,
-      effective-price: (ok u500000)
+      effective-price: (get-current-price market-id outcome-id)
     })
   )
 )
 
 ;; Calculate how much sBTC user would get for selling shares
-;; Simplified for MVP
 (define-read-only (calculate-sell-quote
   (market-id uint)
   (outcome-id uint)
   (shares-to-sell uint))
   (let (
-    (protocol-fee (/ (* shares-to-sell PROTOCOL-FEE-BPS) u10000))
+    (market (unwrap! (contract-call? .market-manager get-market market-id) (err u0)))
+    (quantities (get-all-quantities market-id (get outcome-count market)))
+    (sbtc-before-fee (contract-call? .lmsr-math calculate-sbtc-for-shares
+                                     quantities
+                                     outcome-id
+                                     shares-to-sell
+                                     (get liquidity-param market)))
+    (protocol-fee (/ (* sbtc-before-fee PROTOCOL-FEE-BPS) u10000))
   )
     (ok {
-      sbtc-received: (- shares-to-sell protocol-fee),
+      sbtc-received: (- sbtc-before-fee protocol-fee),
       protocol-fee: protocol-fee,
-      effective-price: (ok u500000)
+      effective-price: (get-current-price market-id outcome-id)
     })
   )
 )
 
 ;; Get all user positions for a market
-;; Simplified for MVP
 (define-read-only (get-user-market-positions (user principal) (market-id uint))
-  (ok true)
+  (let (
+    (market (unwrap! (contract-call? .market-manager get-market market-id) (err u0)))
+    (outcome-count (get outcome-count market))
+  )
+    ;; In production, would iterate through outcomes
+    ;; For now, return success
+    (ok true)
+  )
 )
 
 ;; ============================================
@@ -136,24 +162,39 @@
 ;; ============================================
 
 ;; Buy shares for a specific outcome
-;; Simplified for MVP - cross-contract calls stubbed
 (define-public (buy-shares
   (market-id uint)
   (outcome-id uint)
   (sbtc-amount uint)
   (min-shares uint)) ;; Slippage protection
   (let (
-    (shares-to-mint sbtc-amount) ;; 1:1 conversion for now
+    (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
+    (tradeable (unwrap! (contract-call? .market-manager can-trade market-id) ERR-MARKET-NOT-TRADEABLE))
+    (quote (unwrap! (calculate-buy-quote market-id outcome-id sbtc-amount) ERR-INVALID-AMOUNT))
+    (shares-to-mint (get shares quote))
+    (protocol-fee (get protocol-fee quote))
   )
-    ;; Basic validations
+    ;; Validations
+    (asserts! tradeable ERR-MARKET-NOT-TRADEABLE)
+    (asserts! (< outcome-id (get outcome-count market)) ERR-INVALID-OUTCOME)
     (asserts! (> sbtc-amount u0) ERR-INVALID-AMOUNT)
     (asserts! (>= shares-to-mint min-shares) ERR-SLIPPAGE-EXCEEDED)
+
+    ;; Transfer sBTC from user to vault
+    (try! (contract-call? .vault deposit-to-market tx-sender market-id sbtc-amount))
 
     ;; Update outcome liquidity
     (update-outcome-liquidity market-id outcome-id shares-to-mint true)
 
     ;; Update user position
     (update-user-position tx-sender market-id outcome-id shares-to-mint sbtc-amount)
+
+    ;; Update market volume
+    (try! (contract-call? .market-manager update-market-volume market-id sbtc-amount))
+
+    ;; Record trade
+    (record-trade market-id tx-sender outcome-id "buy" shares-to-mint sbtc-amount
+                  (unwrap-panic (get effective-price quote)))
 
     ;; Emit event
     (print {
@@ -162,7 +203,9 @@
       user: tx-sender,
       outcome-id: outcome-id,
       shares: shares-to-mint,
-      sbtc-amount: sbtc-amount
+      sbtc-amount: sbtc-amount,
+      price: (unwrap-panic (get effective-price quote)),
+      fee: protocol-fee
     })
 
     (ok shares-to-mint)
@@ -170,17 +213,22 @@
 )
 
 ;; Sell shares back to the pool
-;; Simplified for MVP - cross-contract calls stubbed
 (define-public (sell-shares
   (market-id uint)
   (outcome-id uint)
   (shares-to-sell uint)
   (min-sbtc uint)) ;; Slippage protection
   (let (
+    (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
+    (tradeable (unwrap! (contract-call? .market-manager can-trade market-id) ERR-MARKET-NOT-TRADEABLE))
     (position (unwrap! (get-user-position tx-sender market-id outcome-id) ERR-INSUFFICIENT-BALANCE))
-    (sbtc-to-return shares-to-sell) ;; 1:1 conversion for now
+    (quote (unwrap! (calculate-sell-quote market-id outcome-id shares-to-sell) ERR-INVALID-AMOUNT))
+    (sbtc-to-return (get sbtc-received quote))
+    (protocol-fee (get protocol-fee quote))
   )
     ;; Validations
+    (asserts! tradeable ERR-MARKET-NOT-TRADEABLE)
+    (asserts! (< outcome-id (get outcome-count market)) ERR-INVALID-OUTCOME)
     (asserts! (> shares-to-sell u0) ERR-INVALID-AMOUNT)
     (asserts! (>= (get shares position) shares-to-sell) ERR-INSUFFICIENT-BALANCE)
     (asserts! (>= sbtc-to-return min-sbtc) ERR-SLIPPAGE-EXCEEDED)
@@ -191,6 +239,13 @@
     ;; Update user position
     (reduce-user-position tx-sender market-id outcome-id shares-to-sell)
 
+    ;; Transfer sBTC from vault to user
+    (try! (contract-call? .vault withdraw-from-market tx-sender market-id sbtc-to-return))
+
+    ;; Record trade
+    (record-trade market-id tx-sender outcome-id "sell" shares-to-sell sbtc-to-return
+                  (unwrap-panic (get effective-price quote)))
+
     ;; Emit event
     (print {
       event: "shares-sold",
@@ -198,7 +253,9 @@
       user: tx-sender,
       outcome-id: outcome-id,
       shares: shares-to-sell,
-      sbtc-amount: sbtc-to-return
+      sbtc-amount: sbtc-to-return,
+      price: (unwrap-panic (get effective-price quote)),
+      fee: protocol-fee
     })
 
     (ok sbtc-to-return)
@@ -210,26 +267,35 @@
 ;; ============================================
 
 ;; Claim winnings after market resolution
-;; Simplified for MVP - assumes market is resolved and user won
 (define-public (claim-winnings (market-id uint) (outcome-id uint))
   (let (
+    (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
     (position (unwrap! (get-user-position tx-sender market-id outcome-id) ERR-INSUFFICIENT-BALANCE))
-    (payout (* (get shares position) PRECISION))
+    (resolved-outcome (unwrap! (get resolved-outcome market) ERR-MARKET-NOT-FOUND))
   )
-    ;; Clear position
-    (map-delete user-positions { user: tx-sender, market-id: market-id, outcome-id: outcome-id })
+    ;; Check if user bet on winning outcome
+    (asserts! (is-eq outcome-id resolved-outcome) (err u209)) ;; ERR-NOT-WINNING-OUTCOME
 
-    ;; Emit event
-    (print {
-      event: "winnings-claimed",
-      market-id: market-id,
-      user: tx-sender,
-      outcome-id: outcome-id,
-      shares: (get shares position),
-      payout: payout
-    })
+    ;; Calculate payout (1 sBTC per share for winning outcome)
+    (let ((payout (* (get shares position) PRECISION)))
+      ;; Transfer winnings from vault
+      (try! (contract-call? .vault release-winnings tx-sender market-id payout))
 
-    (ok payout)
+      ;; Clear position
+      (map-delete user-positions { user: tx-sender, market-id: market-id, outcome-id: outcome-id })
+
+      ;; Emit event
+      (print {
+        event: "winnings-claimed",
+        market-id: market-id,
+        user: tx-sender,
+        outcome-id: outcome-id,
+        shares: (get shares position),
+        payout: payout
+      })
+
+      (ok payout)
+    )
   )
 )
 
@@ -358,7 +424,6 @@
 )
 
 ;; Record trade in history
-;; Simplified for MVP
 (define-private (record-trade
   (market-id uint)
   (user principal)
@@ -366,7 +431,7 @@
   (trade-type (string-ascii 4))
   (shares uint)
   (sbtc-amount uint)
-  (price uint))
+  (price (response uint uint)))
   (let (
     (trade-id (var-get next-trade-id))
   )
@@ -379,11 +444,18 @@
         trade-type: trade-type,
         shares: shares,
         sbtc-amount: sbtc-amount,
-        price: price,
+        price: (default-to u0 (ok-or-default price)),
         timestamp: stacks-block-height
       }
     )
     (var-set next-trade-id (+ trade-id u1))
     true
   )
+)
+
+;; Helper to unwrap price response
+(define-private (ok-or-default (result (response uint uint)))
+  (match result
+    ok-val ok-val
+    err-val u0)
 )
