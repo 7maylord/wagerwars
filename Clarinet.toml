@@ -1,14 +1,65 @@
 [project]
 name = 'wagerwars'
-description = ''
+description = 'Decentralized prediction market on Stacks Bitcoin L2'
 authors = []
 telemetry = true
 cache_dir = './.cache'
 requirements = []
+
+# SIP-010 Trait (must be first)
+[contracts.sip010-ft-trait]
+path = 'contracts/sip010-ft-trait.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# Mock sBTC Token (for testing)
+[contracts.mock-sbtc]
+path = 'contracts/mock-sbtc.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# sBTC Token Interface
+[contracts.sbtc-token]
+path = 'contracts/sbtc-token.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# LMSR Math Library
+[contracts.lmsr-math]
+path = 'contracts/lmsr-math.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# Market Manager
+[contracts.market-manager]
+path = 'contracts/market-manager.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# Oracle Bridge
+[contracts.oracle-bridge]
+path = 'contracts/oracle-bridge.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# Vault (Escrow)
+[contracts.vault]
+path = 'contracts/vault.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# Order Book (Trading Engine)
+[contracts.order-book]
+path = 'contracts/order-book.clar'
+clarity_version = 3
+epoch = 'latest'
+
+# Main WagerWars Contract
 [contracts.wagerwars]
 path = 'contracts/wagerwars.clar'
 clarity_version = 3
 epoch = 'latest'
+
 [repl.analysis]
 passes = ['check_checker']
 
