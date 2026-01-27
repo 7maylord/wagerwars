@@ -11,6 +11,9 @@
 (define-constant MAX-ITERATIONS u20) ;; For Taylor series approximations
 (define-constant E-CONSTANT u2718281) ;; e ~ 2.718281 in fixed-point
 
+;; Data variable to store liquidity param for map operations
+(define-data-var current-liquidity-param uint u1000000)
+
 ;; Error codes
 (define-constant ERR-OVERFLOW (err u1000))
 (define-constant ERR-DIVISION-BY-ZERO (err u1001))
@@ -118,6 +121,11 @@
 ;; LMSR Pricing Functions
 ;; ============================================
 
+;; Helper function to calculate e^(q/b) for a single quantity
+(define-private (calc-exp-term (q uint))
+  (exp (fp-divide q (var-get current-liquidity-param)))
+)
+
 ;; Calculate LMSR cost: C(q) = b * ln(sum(e^(q_i/b)))
 ;; Inputs:
 ;;   - quantities: list of quantities for each outcome
@@ -125,12 +133,15 @@
 ;; Output: total cost in fixed-point
 (define-read-only (lmsr-cost (quantities (list 10 uint)) (liquidity-param uint))
   (let (
+    ;; For simplicity, calculate directly without map
+    ;; Get first two quantities (binary market)
+    (q0 (default-to u0 (element-at? quantities u0)))
+    (q1 (default-to u0 (element-at? quantities u1)))
     ;; Calculate e^(q_i/b) for each outcome
-    (exp-terms (map (lambda (q)
-                      (exp (fp-divide q liquidity-param)))
-                    quantities))
+    (exp0 (exp (fp-divide q0 liquidity-param)))
+    (exp1 (exp (fp-divide q1 liquidity-param)))
     ;; Sum all exponential terms
-    (sum-exp (fold + exp-terms u0))
+    (sum-exp (+ exp0 exp1))
     ;; Calculate ln(sum)
     (ln-sum (ln sum-exp))
   )
@@ -147,14 +158,16 @@
 ;; Output: price between 0 and 1 in fixed-point
 (define-read-only (lmsr-price (quantities (list 10 uint)) (outcome-index uint) (liquidity-param uint))
   (let (
+    ;; For simplicity, calculate directly without map (binary market)
+    (q0 (default-to u0 (element-at? quantities u0)))
+    (q1 (default-to u0 (element-at? quantities u1)))
     ;; Calculate e^(q_i/b) for each outcome
-    (exp-terms (map (lambda (q)
-                      (exp (fp-divide q liquidity-param)))
-                    quantities))
+    (exp0 (exp (fp-divide q0 liquidity-param)))
+    (exp1 (exp (fp-divide q1 liquidity-param)))
     ;; Sum all exponential terms
-    (sum-exp (fold + exp-terms u0))
+    (sum-exp (+ exp0 exp1))
     ;; Get the exponential term for the target outcome
-    (target-exp (unwrap-panic (element-at? exp-terms outcome-index)))
+    (target-exp (if (is-eq outcome-index u0) exp0 exp1))
   )
     ;; Return e^(q_i/b) / sum(e^(q_j/b))
     (fp-divide target-exp sum-exp)
@@ -204,14 +217,19 @@
   (shares-to-sell uint)
   (liquidity-param uint))
   (let (
+    ;; Get current quantities for binary market
+    (q0 (default-to u0 (element-at? current-quantities u0)))
+    (q1 (default-to u0 (element-at? current-quantities u1)))
     ;; Calculate new quantities after selling
-    (new-quantities (map-update current-quantities outcome-index
-                                (lambda (q) (if (> q shares-to-sell)
-                                                (- q shares-to-sell)
-                                                u0))))
+    (new-q0 (if (is-eq outcome-index u0)
+               (if (> q0 shares-to-sell) (- q0 shares-to-sell) u0)
+               q0))
+    (new-q1 (if (is-eq outcome-index u1)
+               (if (> q1 shares-to-sell) (- q1 shares-to-sell) u0)
+               q1))
     ;; Get costs before and after
     (cost-before (lmsr-cost current-quantities liquidity-param))
-    (cost-after (lmsr-cost new-quantities liquidity-param))
+    (cost-after (lmsr-cost (list new-q0 new-q1) liquidity-param))
   )
     ;; Return difference (what user gets back)
     (if (> cost-before cost-after)
@@ -219,32 +237,6 @@
       u0
     )
   )
-)
-
-;; ============================================
-;; Helper Functions
-;; ============================================
-
-;; Update a specific element in a list
-(define-private (map-update (lst (list 10 uint)) (index uint) (fn (uint) uint))
-  (map (lambda (item-data)
-         (let ((idx (get idx item-data))
-               (val (get val item-data)))
-           (if (is-eq idx index)
-             (fn val)
-             val)))
-       (enumerate lst))
-)
-
-;; Create list of {idx, val} pairs for mapping
-(define-private (enumerate (lst (list 10 uint)))
-  (map make-indexed-item
-       lst
-       (list u0 u1 u2 u3 u4 u5 u6 u7 u8 u9))
-)
-
-(define-private (make-indexed-item (val uint) (idx uint))
-  {idx: idx, val: val}
 )
 
 ;; ============================================

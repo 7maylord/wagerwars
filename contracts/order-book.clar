@@ -117,7 +117,7 @@
                               amount-after-fee
                               (get liquidity-param market)),
       protocol-fee: protocol-fee,
-      effective-price: (get-current-price market-id outcome-id)
+      effective-price: (unwrap-panic (get-current-price market-id outcome-id))
     })
   )
 )
@@ -140,7 +140,7 @@
     (ok {
       usdcx-received: (- usdcx-before-fee protocol-fee),
       protocol-fee: protocol-fee,
-      effective-price: (get-current-price market-id outcome-id)
+      effective-price: (unwrap-panic (get-current-price market-id outcome-id))
     })
   )
 )
@@ -169,13 +169,13 @@
   (min-shares uint)) ;; Slippage protection
   (let (
     (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
-    (tradeable (unwrap! (contract-call? .market-manager can-trade market-id) ERR-MARKET-NOT-TRADEABLE))
+    (tradeable (contract-call? .market-manager can-trade market-id))
     (quote (unwrap! (calculate-buy-quote market-id outcome-id usdcx-amount) ERR-INVALID-AMOUNT))
     (shares-to-mint (get shares quote))
     (protocol-fee (get protocol-fee quote))
   )
     ;; Validations
-    (asserts! tradeable ERR-MARKET-NOT-TRADEABLE)
+    (asserts! (is-eq tradeable true) ERR-MARKET-NOT-TRADEABLE)
     (asserts! (< outcome-id (get outcome-count market)) ERR-INVALID-OUTCOME)
     (asserts! (> usdcx-amount u0) ERR-INVALID-AMOUNT)
     (asserts! (>= shares-to-mint min-shares) ERR-SLIPPAGE-EXCEEDED)
@@ -194,7 +194,7 @@
 
     ;; Record trade
     (record-trade market-id tx-sender outcome-id "buy" shares-to-mint usdcx-amount
-                  (unwrap-panic (get effective-price quote)))
+                  (get effective-price quote))
 
     ;; Emit event
     (print {
@@ -204,7 +204,7 @@
       outcome-id: outcome-id,
       shares: shares-to-mint,
       usdcx-amount: usdcx-amount,
-      price: (unwrap-panic (get effective-price quote)),
+      price: (get effective-price quote),
       fee: protocol-fee
     })
 
@@ -220,14 +220,14 @@
   (min-usdcx uint)) ;; Slippage protection
   (let (
     (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
-    (tradeable (unwrap! (contract-call? .market-manager can-trade market-id) ERR-MARKET-NOT-TRADEABLE))
+    (tradeable (contract-call? .market-manager can-trade market-id))
     (position (unwrap! (get-user-position tx-sender market-id outcome-id) ERR-INSUFFICIENT-BALANCE))
     (quote (unwrap! (calculate-sell-quote market-id outcome-id shares-to-sell) ERR-INVALID-AMOUNT))
     (usdcx-to-return (get usdcx-received quote))
     (protocol-fee (get protocol-fee quote))
   )
     ;; Validations
-    (asserts! tradeable ERR-MARKET-NOT-TRADEABLE)
+    (asserts! (is-eq tradeable true) ERR-MARKET-NOT-TRADEABLE)
     (asserts! (< outcome-id (get outcome-count market)) ERR-INVALID-OUTCOME)
     (asserts! (> shares-to-sell u0) ERR-INVALID-AMOUNT)
     (asserts! (>= (get shares position) shares-to-sell) ERR-INSUFFICIENT-BALANCE)
@@ -244,7 +244,7 @@
 
     ;; Record trade
     (record-trade market-id tx-sender outcome-id "sell" shares-to-sell usdcx-to-return
-                  (unwrap-panic (get effective-price quote)))
+                  (get effective-price quote))
 
     ;; Emit event
     (print {
@@ -254,7 +254,7 @@
       outcome-id: outcome-id,
       shares: shares-to-sell,
       usdcx-amount: usdcx-to-return,
-      price: (unwrap-panic (get effective-price quote)),
+      price: (get effective-price quote),
       fee: protocol-fee
     })
 
@@ -431,7 +431,7 @@
   (trade-type (string-ascii 4))
   (shares uint)
   (usdcx-amount uint)
-  (price (response uint uint)))
+  (price uint))
   (let (
     (trade-id (var-get next-trade-id))
   )
@@ -444,18 +444,11 @@
         trade-type: trade-type,
         shares: shares,
         usdcx-amount: usdcx-amount,
-        price: (default-to u0 (ok-or-default price)),
+        price: price,
         timestamp: stacks-block-height
       }
     )
     (var-set next-trade-id (+ trade-id u1))
     true
   )
-)
-
-;; Helper to unwrap price response
-(define-private (ok-or-default (result (response uint uint)))
-  (match result
-    ok-val ok-val
-    err-val u0)
 )

@@ -1,6 +1,8 @@
 ;; USDCx Token Interface
 ;; Wrapper contract for interacting with USDCx (USDC-backed stablecoin on Stacks via Circle xReserve)
 ;; Implements SIP-010 fungible token standard
+;; Note: In production, this would call the actual USDCx contract via Circle xReserve
+;; For testing, we use an internal token implementation
 
 ;; ============================================
 ;; Trait Implementation
@@ -9,14 +11,16 @@
 (impl-trait .sip010-ft-trait.sip010-ft-trait)
 
 ;; ============================================
+;; Token Definition
+;; ============================================
+
+(define-fungible-token usdcx u1000000000000000) ;; 1 billion USDCx max supply
+
+;; ============================================
 ;; Constants
 ;; ============================================
 
 (define-constant CONTRACT-OWNER tx-sender)
-
-;; In production, this would be the actual USDCx contract address on mainnet
-;; For testnet/devnet, we'll mock it
-(define-constant USDCX-CONTRACT .mock-usdcx)
 
 ;; Error codes
 (define-constant ERR-UNAUTHORIZED (err u500))
@@ -35,9 +39,13 @@
   (recipient principal)
   (memo (optional (buff 34))))
   (begin
-    ;; In production, this would call the actual USDCx contract
-    ;; For now, we'll use our mock implementation
-    (contract-call? USDCX-CONTRACT transfer amount sender recipient memo)
+    (asserts! (is-eq tx-sender sender) ERR-NOT-TOKEN-OWNER)
+    (try! (ft-transfer? usdcx amount sender recipient))
+    (match memo
+      to-print (print to-print)
+      0x
+    )
+    (ok true)
   )
 )
 
@@ -58,12 +66,12 @@
 
 ;; Get balance of an account
 (define-read-only (get-balance (account principal))
-  (contract-call? USDCX-CONTRACT get-balance account)
+  (ok (ft-get-balance usdcx account))
 )
 
 ;; Get total supply
 (define-read-only (get-total-supply)
-  (contract-call? USDCX-CONTRACT get-total-supply)
+  (ok (ft-get-supply usdcx))
 )
 
 ;; Get token URI
@@ -78,12 +86,8 @@
 ;; Transfer USDCx from user to vault (called by vault contract)
 (define-public (transfer-to-vault (amount uint) (sender principal))
   (begin
-    ;; Transfer from sender to contract
-    (try! (contract-call? USDCX-CONTRACT transfer
-                          amount
-                          sender
-                          (as-contract tx-sender)
-                          none))
+    ;; Transfer from sender to this contract (vault holds funds here)
+    (try! (ft-transfer? usdcx amount sender (as-contract tx-sender)))
     (ok amount)
   )
 )
@@ -91,28 +95,28 @@
 ;; Transfer USDCx from vault to user (called by vault contract)
 (define-public (transfer-from-vault (amount uint) (recipient principal))
   (begin
-    ;; Transfer from contract to recipient
-    (try! (as-contract (contract-call? USDCX-CONTRACT transfer
-                                       amount
-                                       tx-sender
-                                       recipient
-                                       none)))
+    ;; Transfer from this contract to recipient
+    (try! (as-contract (ft-transfer? usdcx amount tx-sender recipient)))
     (ok amount)
   )
 )
 
 ;; ============================================
-;; Mock USDCx Contract (for testing)
+;; Minting Functions (for testing)
 ;; ============================================
-;; This will be replaced with the real USDCx contract on mainnet
-;; For devnet testing, we implement a simple fungible token
 
-(define-fungible-token usdcx-mock)
-
-(define-public (mint-mock (amount uint) (recipient principal))
+;; Mint function (for testing only - in production this would be controlled by Circle)
+(define-public (mint (amount uint) (recipient principal))
   (begin
-    ;; Only for testing - remove in production
-    (try! (ft-mint? usdcx-mock amount recipient))
+    (try! (ft-mint? usdcx amount recipient))
+    (ok true)
+  )
+)
+
+;; Initialize test wallets with USDCx
+(define-public (init-test-wallets)
+  (begin
+    ;; This would be called once to give test wallets some USDCx
     (ok true)
   )
 )
