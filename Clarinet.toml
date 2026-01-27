@@ -12,15 +12,15 @@ path = 'contracts/sip010-ft-trait.clar'
 clarity_version = 3
 epoch = 'latest'
 
-# Mock sBTC Token (for testing)
-[contracts.mock-sbtc]
-path = 'contracts/mock-sbtc.clar'
+# Mock USDCx Token (for testing)
+[contracts.mock-usdcx]
+path = 'contracts/mock-usdcx.clar'
 clarity_version = 3
 epoch = 'latest'
 
-# sBTC Token Interface
-[contracts.sbtc-token]
-path = 'contracts/sbtc-token.clar'
+# USDCx Token Interface
+[contracts.usdcx-token]
+path = 'contracts/usdcx-token.clar'
 clarity_version = 3
 epoch = 'latest'
 

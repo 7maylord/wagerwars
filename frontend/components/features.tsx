@@ -7,7 +7,7 @@ const features = [
   {
     icon: Zap,
     title: "Bitcoin-Secured Bets",
-    description: "Wager with sBTC, settle with Bitcoin's finality. No bridges, no BS.",
+    description: "Wager with USDCx, settle with Bitcoin's security. Stable, secure, no bridges.",
   },
   {
     icon: Shield,

@@ -23,7 +23,7 @@
 ;; Fees and limits
 (define-constant MARKET-CREATION-FEE u10000000) ;; 10 STX in micro-STX
 (define-constant PROTOCOL-FEE-BPS u200) ;; 2% in basis points (200/10000)
-(define-constant MIN-LIQUIDITY u1000000) ;; Minimum 1 sBTC liquidity
+(define-constant MIN-LIQUIDITY u1000000) ;; Minimum 1 USDCx liquidity
 (define-constant MAX-OUTCOMES u10) ;; Maximum outcomes for categorical markets
 (define-constant MIN-RESOLUTION-TIME u3600) ;; Minimum 1 hour from creation
 

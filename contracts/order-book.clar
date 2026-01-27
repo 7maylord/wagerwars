@@ -40,7 +40,7 @@
   {
     shares: uint,
     avg-price: uint, ;; Average purchase price in fixed-point
-    total-invested: uint ;; Total sBTC invested
+    total-invested: uint ;; Total USDCx invested
   }
 )
 
@@ -49,7 +49,7 @@
   { market-id: uint, outcome-id: uint }
   {
     shares-outstanding: uint, ;; q_i in LMSR formula
-    total-sbtc-locked: uint
+    total-usdcx-locked: uint
   }
 )
 
@@ -62,7 +62,7 @@
     outcome-id: uint,
     trade-type: (string-ascii 4), ;; "buy" or "sell"
     shares: uint,
-    sbtc-amount: uint,
+    usdcx-amount: uint,
     price: uint,
     timestamp: uint
   }
@@ -98,20 +98,20 @@
   )
 )
 
-;; Calculate how many shares user would get for a given sBTC amount
+;; Calculate how many shares user would get for a given USDCx amount
 (define-read-only (calculate-buy-quote
   (market-id uint)
   (outcome-id uint)
-  (sbtc-amount uint))
+  (usdcx-amount uint))
   (let (
     (market (unwrap! (contract-call? .market-manager get-market market-id) (err u0)))
     (quantities (get-all-quantities market-id (get outcome-count market)))
-    (protocol-fee (/ (* sbtc-amount PROTOCOL-FEE-BPS) u10000))
-    (amount-after-fee (- sbtc-amount protocol-fee))
+    (protocol-fee (/ (* usdcx-amount PROTOCOL-FEE-BPS) u10000))
+    (amount-after-fee (- usdcx-amount protocol-fee))
   )
     ;; Calculate shares using LMSR
     (ok {
-      shares: (contract-call? .lmsr-math calculate-shares-for-sbtc
+      shares: (contract-call? .lmsr-math calculate-shares-for-usdcx
                               quantities
                               outcome-id
                               amount-after-fee
@@ -122,7 +122,7 @@
   )
 )
 
-;; Calculate how much sBTC user would get for selling shares
+;; Calculate how much USDCx user would get for selling shares
 (define-read-only (calculate-sell-quote
   (market-id uint)
   (outcome-id uint)
@@ -130,15 +130,15 @@
   (let (
     (market (unwrap! (contract-call? .market-manager get-market market-id) (err u0)))
     (quantities (get-all-quantities market-id (get outcome-count market)))
-    (sbtc-before-fee (contract-call? .lmsr-math calculate-sbtc-for-shares
+    (usdcx-before-fee (contract-call? .lmsr-math calculate-usdcx-for-shares
                                      quantities
                                      outcome-id
                                      shares-to-sell
                                      (get liquidity-param market)))
-    (protocol-fee (/ (* sbtc-before-fee PROTOCOL-FEE-BPS) u10000))
+    (protocol-fee (/ (* usdcx-before-fee PROTOCOL-FEE-BPS) u10000))
   )
     (ok {
-      sbtc-received: (- sbtc-before-fee protocol-fee),
+      usdcx-received: (- usdcx-before-fee protocol-fee),
       protocol-fee: protocol-fee,
       effective-price: (get-current-price market-id outcome-id)
     })
@@ -165,35 +165,35 @@
 (define-public (buy-shares
   (market-id uint)
   (outcome-id uint)
-  (sbtc-amount uint)
+  (usdcx-amount uint)
   (min-shares uint)) ;; Slippage protection
   (let (
     (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
     (tradeable (unwrap! (contract-call? .market-manager can-trade market-id) ERR-MARKET-NOT-TRADEABLE))
-    (quote (unwrap! (calculate-buy-quote market-id outcome-id sbtc-amount) ERR-INVALID-AMOUNT))
+    (quote (unwrap! (calculate-buy-quote market-id outcome-id usdcx-amount) ERR-INVALID-AMOUNT))
     (shares-to-mint (get shares quote))
     (protocol-fee (get protocol-fee quote))
   )
     ;; Validations
     (asserts! tradeable ERR-MARKET-NOT-TRADEABLE)
     (asserts! (< outcome-id (get outcome-count market)) ERR-INVALID-OUTCOME)
-    (asserts! (> sbtc-amount u0) ERR-INVALID-AMOUNT)
+    (asserts! (> usdcx-amount u0) ERR-INVALID-AMOUNT)
     (asserts! (>= shares-to-mint min-shares) ERR-SLIPPAGE-EXCEEDED)
 
-    ;; Transfer sBTC from user to vault
-    (try! (contract-call? .vault deposit-to-market tx-sender market-id sbtc-amount))
+    ;; Transfer USDCx from user to vault
+    (try! (contract-call? .vault deposit-to-market tx-sender market-id usdcx-amount))
 
     ;; Update outcome liquidity
     (update-outcome-liquidity market-id outcome-id shares-to-mint true)
 
     ;; Update user position
-    (update-user-position tx-sender market-id outcome-id shares-to-mint sbtc-amount)
+    (update-user-position tx-sender market-id outcome-id shares-to-mint usdcx-amount)
 
     ;; Update market volume
-    (try! (contract-call? .market-manager update-market-volume market-id sbtc-amount))
+    (try! (contract-call? .market-manager update-market-volume market-id usdcx-amount))
 
     ;; Record trade
-    (record-trade market-id tx-sender outcome-id "buy" shares-to-mint sbtc-amount
+    (record-trade market-id tx-sender outcome-id "buy" shares-to-mint usdcx-amount
                   (unwrap-panic (get effective-price quote)))
 
     ;; Emit event
@@ -203,7 +203,7 @@
       user: tx-sender,
       outcome-id: outcome-id,
       shares: shares-to-mint,
-      sbtc-amount: sbtc-amount,
+      usdcx-amount: usdcx-amount,
       price: (unwrap-panic (get effective-price quote)),
       fee: protocol-fee
     })
@@ -217,13 +217,13 @@
   (market-id uint)
   (outcome-id uint)
   (shares-to-sell uint)
-  (min-sbtc uint)) ;; Slippage protection
+  (min-usdcx uint)) ;; Slippage protection
   (let (
     (market (unwrap! (contract-call? .market-manager get-market market-id) ERR-MARKET-NOT-FOUND))
     (tradeable (unwrap! (contract-call? .market-manager can-trade market-id) ERR-MARKET-NOT-TRADEABLE))
     (position (unwrap! (get-user-position tx-sender market-id outcome-id) ERR-INSUFFICIENT-BALANCE))
     (quote (unwrap! (calculate-sell-quote market-id outcome-id shares-to-sell) ERR-INVALID-AMOUNT))
-    (sbtc-to-return (get sbtc-received quote))
+    (usdcx-to-return (get usdcx-received quote))
     (protocol-fee (get protocol-fee quote))
   )
     ;; Validations
@@ -231,7 +231,7 @@
     (asserts! (< outcome-id (get outcome-count market)) ERR-INVALID-OUTCOME)
     (asserts! (> shares-to-sell u0) ERR-INVALID-AMOUNT)
     (asserts! (>= (get shares position) shares-to-sell) ERR-INSUFFICIENT-BALANCE)
-    (asserts! (>= sbtc-to-return min-sbtc) ERR-SLIPPAGE-EXCEEDED)
+    (asserts! (>= usdcx-to-return min-usdcx) ERR-SLIPPAGE-EXCEEDED)
 
     ;; Update outcome liquidity
     (update-outcome-liquidity market-id outcome-id shares-to-sell false)
@@ -239,11 +239,11 @@
     ;; Update user position
     (reduce-user-position tx-sender market-id outcome-id shares-to-sell)
 
-    ;; Transfer sBTC from vault to user
-    (try! (contract-call? .vault withdraw-from-market tx-sender market-id sbtc-to-return))
+    ;; Transfer USDCx from vault to user
+    (try! (contract-call? .vault withdraw-from-market tx-sender market-id usdcx-to-return))
 
     ;; Record trade
-    (record-trade market-id tx-sender outcome-id "sell" shares-to-sell sbtc-to-return
+    (record-trade market-id tx-sender outcome-id "sell" shares-to-sell usdcx-to-return
                   (unwrap-panic (get effective-price quote)))
 
     ;; Emit event
@@ -253,12 +253,12 @@
       user: tx-sender,
       outcome-id: outcome-id,
       shares: shares-to-sell,
-      sbtc-amount: sbtc-to-return,
+      usdcx-amount: usdcx-to-return,
       price: (unwrap-panic (get effective-price quote)),
       fee: protocol-fee
     })
 
-    (ok sbtc-to-return)
+    (ok usdcx-to-return)
   )
 )
 
@@ -276,7 +276,7 @@
     ;; Check if user bet on winning outcome
     (asserts! (is-eq outcome-id resolved-outcome) (err u209)) ;; ERR-NOT-WINNING-OUTCOME
 
-    ;; Calculate payout (1 sBTC per share for winning outcome)
+    ;; Calculate payout (1 USDCx per share for winning outcome)
     (let ((payout (* (get shares position) PRECISION)))
       ;; Transfer winnings from vault
       (try! (contract-call? .vault release-winnings tx-sender market-id payout))
@@ -306,25 +306,25 @@
 ;; Get quantities for all outcomes (q_i for LMSR)
 (define-private (get-all-quantities (market-id uint) (outcome-count uint))
   (let (
-    (outcome-0 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-0 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u0)))
-    (outcome-1 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-1 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u1)))
-    (outcome-2 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-2 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u2)))
-    (outcome-3 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-3 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u3)))
-    (outcome-4 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-4 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u4)))
-    (outcome-5 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-5 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u5)))
-    (outcome-6 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-6 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u6)))
-    (outcome-7 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-7 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u7)))
-    (outcome-8 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-8 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u8)))
-    (outcome-9 (default-to { shares-outstanding: u0, total-sbtc-locked: u0 }
+    (outcome-9 (default-to { shares-outstanding: u0, total-usdcx-locked: u0 }
                             (get-outcome-liquidity market-id u9)))
   )
     (list
@@ -350,7 +350,7 @@
   (is-buy bool))
   (let (
     (current (default-to
-              { shares-outstanding: u0, total-sbtc-locked: u0 }
+              { shares-outstanding: u0, total-usdcx-locked: u0 }
               (get-outcome-liquidity market-id outcome-id)))
   )
     (map-set outcome-liquidity
@@ -359,7 +359,7 @@
         shares-outstanding: (if is-buy
                                (+ (get shares-outstanding current) shares)
                                (- (get shares-outstanding current) shares)),
-        total-sbtc-locked: (get total-sbtc-locked current) ;; Updated by vault
+        total-usdcx-locked: (get total-usdcx-locked current) ;; Updated by vault
       }
     )
     true
@@ -372,13 +372,13 @@
   (market-id uint)
   (outcome-id uint)
   (new-shares uint)
-  (sbtc-spent uint))
+  (usdcx-spent uint))
   (let (
     (current (default-to
               { shares: u0, avg-price: u0, total-invested: u0 }
               (get-user-position user market-id outcome-id)))
     (total-shares (+ (get shares current) new-shares))
-    (total-invested (+ (get total-invested current) sbtc-spent))
+    (total-invested (+ (get total-invested current) usdcx-spent))
   )
     (map-set user-positions
       { user: user, market-id: market-id, outcome-id: outcome-id }
@@ -430,7 +430,7 @@
   (outcome-id uint)
   (trade-type (string-ascii 4))
   (shares uint)
-  (sbtc-amount uint)
+  (usdcx-amount uint)
   (price (response uint uint)))
   (let (
     (trade-id (var-get next-trade-id))
@@ -443,7 +443,7 @@
         outcome-id: outcome-id,
         trade-type: trade-type,
         shares: shares,
-        sbtc-amount: sbtc-amount,
+        usdcx-amount: usdcx-amount,
         price: (default-to u0 (ok-or-default price)),
         timestamp: stacks-block-height
       }

@@ -161,44 +161,44 @@
   )
 )
 
-;; Calculate shares received for a given sBTC amount
-;; This solves for: cost(q_new) - cost(q_old) = sbtc-amount
+;; Calculate shares received for a given USDCx amount
+;; This solves for: cost(q_new) - cost(q_old) = usdcx-amount
 ;; Simplified: assumes binary market for now, can extend
 ;; Inputs:
 ;;   - current-quantities: current shares outstanding
 ;;   - outcome-index: which outcome to buy
-;;   - sbtc-amount: amount of sBTC to spend
+;;   - usdcx-amount: amount of USDCx to spend
 ;;   - liquidity-param: b parameter
 ;; Output: number of shares to mint
-(define-read-only (calculate-shares-for-sbtc
+(define-read-only (calculate-shares-for-usdcx
   (current-quantities (list 10 uint))
   (outcome-index uint)
-  (sbtc-amount uint)
+  (usdcx-amount uint)
   (liquidity-param uint))
   (let (
     ;; Get current cost
     (cost-before (lmsr-cost current-quantities liquidity-param))
     ;; Binary search or approximation for shares
-    ;; For simplicity, use linear approximation: shares ~ sbtc / price
+    ;; For simplicity, use linear approximation: shares ~ usdcx / price
     (current-price (lmsr-price current-quantities outcome-index liquidity-param))
   )
-    ;; Simple approximation: shares = sbtc / price
+    ;; Simple approximation: shares = usdcx / price
     ;; This is not perfectly accurate but works for small trades
     (if (> current-price u0)
-      (fp-divide sbtc-amount current-price)
+      (fp-divide usdcx-amount current-price)
       u0
     )
   )
 )
 
-;; Calculate sBTC received for selling shares
+;; Calculate USDCx received for selling shares
 ;; Inputs:
 ;;   - current-quantities: current shares outstanding
 ;;   - outcome-index: which outcome to sell
 ;;   - shares-to-sell: number of shares
 ;;   - liquidity-param: b parameter
-;; Output: amount of sBTC to return
-(define-read-only (calculate-sbtc-for-shares
+;; Output: amount of USDCx to return
+(define-read-only (calculate-usdcx-for-shares
   (current-quantities (list 10 uint))
   (outcome-index uint)
   (shares-to-sell uint)

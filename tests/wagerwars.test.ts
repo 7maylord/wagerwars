@@ -14,30 +14,30 @@ const ONE_DAY = 8640; // ~8640 blocks (1 day with ~10s blocks)
 const MIN_RESOLUTION_TIME = 3600; // Minimum resolution time from market-manager
 
 describe("WagerWars Prediction Market Tests", () => {
-  describe("Mock sBTC Token", () => {
+  describe("Mock USDCx Token", () => {
     it("ensures simnet is well initialised", () => {
       expect(simnet.blockHeight).toBeDefined();
     });
 
     it("should have correct token metadata", () => {
       const name = simnet.callReadOnlyFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "get-name",
         [],
         deployer
       );
-      expect(name.result).toBeOk(Cl.stringAscii("Stacks Bitcoin (Mock)"));
+      expect(name.result).toBeOk(Cl.stringAscii("USDCx (Mock)"));
 
       const symbol = simnet.callReadOnlyFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "get-symbol",
         [],
         deployer
       );
-      expect(symbol.result).toBeOk(Cl.stringAscii("sBTC"));
+      expect(symbol.result).toBeOk(Cl.stringAscii("USDCx"));
 
       const decimals = simnet.callReadOnlyFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "get-decimals",
         [],
         deployer
@@ -46,10 +46,10 @@ describe("WagerWars Prediction Market Tests", () => {
     });
 
     it("should mint tokens for testing", () => {
-      const mintAmount = 1000 * PRECISION; // 1000 sBTC
+      const mintAmount = 1000 * PRECISION; // 1000 USDCx
 
       const { result } = simnet.callPublicFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "mint",
         [Cl.uint(mintAmount), Cl.principal(wallet1)],
         deployer
@@ -59,7 +59,7 @@ describe("WagerWars Prediction Market Tests", () => {
 
       // Check balance
       const balance = simnet.callReadOnlyFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "get-balance",
         [Cl.principal(wallet1)],
         wallet1
@@ -74,7 +74,7 @@ describe("WagerWars Prediction Market Tests", () => {
 
       // Mint to wallet1
       simnet.callPublicFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "mint",
         [Cl.uint(mintAmount), Cl.principal(wallet1)],
         deployer
@@ -82,7 +82,7 @@ describe("WagerWars Prediction Market Tests", () => {
 
       // Transfer from wallet1 to wallet2
       const { result } = simnet.callPublicFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "transfer",
         [
           Cl.uint(transferAmount),
@@ -97,7 +97,7 @@ describe("WagerWars Prediction Market Tests", () => {
 
       // Check balances
       const balance1 = simnet.callReadOnlyFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "get-balance",
         [Cl.principal(wallet1)],
         wallet1
@@ -105,7 +105,7 @@ describe("WagerWars Prediction Market Tests", () => {
       expect(balance1.result).toBeOk(Cl.uint(mintAmount - transferAmount));
 
       const balance2 = simnet.callReadOnlyFn(
-        "mock-sbtc",
+        "mock-usdcx",
         "get-balance",
         [Cl.principal(wallet2)],
         wallet2

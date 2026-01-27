@@ -1,5 +1,5 @@
 ;; Vault Contract
-;; Secure escrow for sBTC collateral and distribution of winnings
+;; Secure escrow for USDCx collateral and distribution of winnings
 ;; Holds all funds for prediction markets
 
 ;; ============================================
@@ -30,7 +30,7 @@
 ;; Data Maps
 ;; ============================================
 
-;; Market balances (total sBTC locked per market)
+;; Market balances (total USDCx locked per market)
 (define-map market-balances
   { market-id: uint }
   {
@@ -86,7 +86,7 @@
   (map-get? claimable-winnings { user: user, market-id: market-id })
 )
 
-;; Get total locked sBTC across all markets
+;; Get total locked USDCx across all markets
 (define-read-only (get-total-locked)
   (ok (var-get total-locked))
 )
@@ -109,7 +109,7 @@
 ;; Public Functions - Deposits
 ;; ============================================
 
-;; Deposit sBTC to market (called by order-book on buy)
+;; Deposit USDCx to market (called by order-book on buy)
 (define-public (deposit-to-market (user principal) (market-id uint) (amount uint))
   (begin
     ;; Only order-book contract should call this
@@ -117,8 +117,8 @@
 
     (asserts! (> amount u0) ERR-INVALID-AMOUNT)
 
-    ;; Transfer sBTC from user to vault
-    (try! (contract-call? .sbtc-token transfer-to-vault amount user))
+    ;; Transfer USDCx from user to vault
+    (try! (contract-call? .usdcx-token transfer-to-vault amount user))
 
     ;; Update market balance
     (let (
@@ -153,7 +153,7 @@
     (var-set total-locked (+ (var-get total-locked) amount))
 
     (print {
-      event: "sbtc-deposited",
+      event: "usdcx-deposited",
       user: user,
       market-id: market-id,
       amount: amount
@@ -167,7 +167,7 @@
 ;; Public Functions - Withdrawals
 ;; ============================================
 
-;; Withdraw sBTC from market (called by order-book on sell)
+;; Withdraw USDCx from market (called by order-book on sell)
 (define-public (withdraw-from-market (user principal) (market-id uint) (amount uint))
   (begin
     ;; Only order-book contract should call this
@@ -181,8 +181,8 @@
       ;; Check sufficient balance in market
       (asserts! (>= (get total-locked market-bal) amount) ERR-INSUFFICIENT-BALANCE)
 
-      ;; Transfer sBTC from vault to user
-      (try! (contract-call? .sbtc-token transfer-from-vault amount user))
+      ;; Transfer USDCx from vault to user
+      (try! (contract-call? .usdcx-token transfer-from-vault amount user))
 
       ;; Update market balance
       (map-set market-balances
@@ -210,7 +210,7 @@
       (var-set total-locked (- (var-get total-locked) amount))
 
       (print {
-        event: "sbtc-withdrawn",
+        event: "usdcx-withdrawn",
         user: user,
         market-id: market-id,
         amount: amount
@@ -240,7 +240,7 @@
       (asserts! (>= (get total-locked market-bal) amount) ERR-INSUFFICIENT-BALANCE)
 
       ;; Transfer winnings
-      (try! (contract-call? .sbtc-token transfer-from-vault amount user))
+      (try! (contract-call? .usdcx-token transfer-from-vault amount user))
 
       ;; Update market balance
       (map-set market-balances
@@ -293,7 +293,7 @@
       (asserts! (> refund-amount u0) ERR-INVALID-AMOUNT)
 
       ;; Transfer refund
-      (try! (contract-call? .sbtc-token transfer-from-vault refund-amount user))
+      (try! (contract-call? .usdcx-token transfer-from-vault refund-amount user))
 
       ;; Mark as claimed
       (map-set user-market-balances
@@ -376,7 +376,7 @@
     (asserts! (<= amount (var-get total-fees-collected)) ERR-INSUFFICIENT-BALANCE)
 
     ;; Transfer fees to treasury
-    (try! (contract-call? .sbtc-token transfer-from-vault amount treasury))
+    (try! (contract-call? .usdcx-token transfer-from-vault amount treasury))
 
     ;; Update fees collected
     (var-set total-fees-collected (- (var-get total-fees-collected) amount))
@@ -410,7 +410,7 @@
   (begin
     (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-UNAUTHORIZED)
 
-    (try! (contract-call? .sbtc-token transfer-from-vault amount recipient))
+    (try! (contract-call? .usdcx-token transfer-from-vault amount recipient))
 
     (print {
       event: "emergency-withdrawal",

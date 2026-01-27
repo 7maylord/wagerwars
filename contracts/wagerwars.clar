@@ -1,6 +1,6 @@
 ;; WagerWars Main Contract
 ;; Entry point and coordinator for the WagerWars prediction market platform
-;; Built on Stacks Bitcoin L2 with sBTC
+;; Built on Stacks Bitcoin L2 with USDCx
 
 ;; ============================================
 ;; Title: WagerWars Prediction Market
@@ -29,7 +29,7 @@
   (oracle principal)
   (initial-liquidity uint))
   (let (
-    (liquidity-param u10000000) ;; Default 10 sBTC liquidity parameter
+    (liquidity-param u10000000) ;; Default 10 USDCx liquidity parameter
   )
     ;; Call market-manager to create market
     (contract-call? .market-manager create-binary-market
@@ -49,11 +49,11 @@
 (define-public (buy-outcome
   (market-id uint)
   (outcome-id uint)
-  (sbtc-amount uint))
+  (usdcx-amount uint))
   (let (
     (min-shares u0) ;; No slippage protection for simplicity
   )
-    (contract-call? .order-book buy-shares market-id outcome-id sbtc-amount min-shares)
+    (contract-call? .order-book buy-shares market-id outcome-id usdcx-amount min-shares)
   )
 )
 
@@ -63,9 +63,9 @@
   (outcome-id uint)
   (shares-amount uint))
   (let (
-    (min-sbtc u0) ;; No slippage protection for simplicity
+    (min-usdcx u0) ;; No slippage protection for simplicity
   )
-    (contract-call? .order-book sell-shares market-id outcome-id shares-amount min-sbtc)
+    (contract-call? .order-book sell-shares market-id outcome-id shares-amount min-usdcx)
   )
 )
 
@@ -114,8 +114,8 @@
 ;; ============================================
 
 ;; Calculate quote for buying
-(define-read-only (get-buy-quote (market-id uint) (outcome-id uint) (sbtc-amount uint))
-  (contract-call? .order-book calculate-buy-quote market-id outcome-id sbtc-amount)
+(define-read-only (get-buy-quote (market-id uint) (outcome-id uint) (usdcx-amount uint))
+  (contract-call? .order-book calculate-buy-quote market-id outcome-id usdcx-amount)
 )
 
 ;; Calculate quote for selling
